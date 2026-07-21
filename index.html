@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FlapFish</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+html,body { width:100%; height:100%; overflow:hidden; background:#062a3f; font-family:'Segoe UI',Arial,sans-serif; }
+#gameCanvas { display:block; margin:0 auto; touch-action:manipulation; }
+#ui { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+.btn { pointer-events:auto; }
+
+#topBar { position:absolute; top:16px; left:0; width:100%; display:flex; justify-content:space-between; padding:0 16px; }
+#scoreDisplay {
+  color:#fff; font-size:48px; font-weight:900; text-shadow:0 3px 0 rgba(0,0,0,.25), 0 0 20px rgba(120,220,255,.4);
+  text-align:center; width:100%; position:absolute; top:26px; letter-spacing:1px;
+}
+.scorePop { animation: scorePop .28s ease; }
+@keyframes scorePop { 0%{ transform:scale(1); } 40%{ transform:scale(1.35); } 100%{ transform:scale(1); } }
+
+.coinCount {
+  color:#ffe27a; font-size:16px; font-weight:800; display:flex; align-items:center; gap:6px;
+  background:rgba(4,20,35,.5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  padding:8px 16px; border-radius:24px; border:1px solid rgba(255,255,255,.14);
+  box-shadow: 0 4px 14px rgba(0,0,0,.3);
+}
+
+#menuScreen, #gameOverScreen {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  pointer-events:auto;
+  background: radial-gradient(ellipse at 50% 30%, rgba(10,60,90,.55), rgba(2,15,25,.8));
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  animation: fadeInScale .38s cubic-bezier(.2,.9,.3,1.3);
+  color:#fff; text-align:center;
+}
+@keyframes fadeInScale { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:scale(1); } }
+.hidden { display:none !important; }
+
+.card {
+  background: rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:22px;
+  padding:28px 26px 22px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  max-width:320px; width:86%;
+}
+h1 {
+  font-size:44px; color:#5fe0ff; margin-bottom:6px; letter-spacing:1px;
+  text-shadow: 0 3px 0 #005f7a, 0 8px 24px rgba(95,224,255,.4);
+  animation: titleBounce 2.6s ease-in-out infinite;
+}
+@keyframes titleBounce { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-6px); } }
+.subtitle { font-size:13px; color:rgba(255,255,255,.6); margin-bottom:18px; }
+
+.bigBtn {
+  position:relative; overflow:hidden;
+  background: linear-gradient(180deg, #3ec6f0, #1a8fc4);
+  color:#fff; border:none; padding:16px 34px; font-size:19px;
+  border-radius:16px; margin:8px 0; font-weight:800; width:100%;
+  box-shadow: 0 5px 0 #0e5f80, 0 10px 24px rgba(30,150,200,.35);
+  cursor:pointer; letter-spacing:.3px;
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.bigBtn::after {
+  content:''; position:absolute; top:0; left:-60%; width:40%; height:100%;
+  background: linear-gradient(115deg, transparent, rgba(255,255,255,.55), transparent);
+  transform: skewX(-20deg); animation: btnShine 3.2s ease-in-out infinite;
+}
+@keyframes btnShine { 0%,25%{ left:-60%; } 55%,100%{ left:130%; } }
+.bigBtn:active { transform:translateY(4px); box-shadow:0 1px 0 #0e5f80, 0 4px 10px rgba(30,150,200,.3); }
+
+.statRow { display:flex; justify-content:center; gap:18px; margin-bottom:16px; }
+.statChip {
+  background:rgba(0,0,0,.28); border-radius:14px; padding:8px 16px; font-size:13px; font-weight:700;
+  display:flex; flex-direction:column; align-items:center; gap:2px; min-width:70px;
+}
+.statChip span.big { font-size:20px; color:#5fe0ff; }
+.newRecordBadge {
+  display:inline-flex; align-items:center; gap:6px; background:linear-gradient(135deg,#a0f0ff,#3ec6f0);
+  color:#003347; font-weight:800; font-size:13px; padding:6px 14px; border-radius:20px;
+  margin-bottom:14px; box-shadow:0 4px 14px rgba(62,198,240,.4); animation: badgeIn .4s ease;
+}
+@keyframes badgeIn { from{ transform:scale(0) rotate(-8deg); opacity:0; } to{ transform:scale(1) rotate(0); opacity:1; } }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="ui">
+  <div id="topBar">
+    <div class="coinCount" id="coinCount">🪙 0</div>
+    <div class="coinCount" id="bestCount">🏆 0</div>
+  </div>
+  <div id="scoreDisplay" class="hidden">0</div>
+
+  <div id="menuScreen">
+    <div class="card">
+      <h1>Flap<span style="color:#ffcc00;">Fish</span></h1>
+      <div class="subtitle">toque pra nadar entre os corais</div>
+      <button class="bigBtn btn" id="playBtn">▶ Jogar</button>
+    </div>
+  </div>
+
+  <div id="gameOverScreen" class="hidden">
+    <div class="card">
+      <h1 style="font-size:30px;">Fim de Jogo</h1>
+      <p id="newRecord" class="hidden newRecordBadge">🏆 Novo recorde!</p>
+      <div class="statRow">
+        <div class="statChip">PONTOS<span class="big" id="finalScoreVal">0</span></div>
+        <div class="statChip">RECORDE<span class="big" id="finalBestVal">0</span></div>
+      </div>
+      <button class="bigBtn btn" id="restartBtn">🔄 Jogar de novo</button>
+      <button class="bigBtn btn" id="menuBtn" style="background:linear-gradient(180deg,#6a6a7a,#45454f);box-shadow:0 5px 0 #2a2a32;">Menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.onerror = function(msg, url, line) { document.body.innerHTML = '<div style="color:#fff;background:red;padding:20px;font-size:16px;">ERRO: ' + msg + ' (linha ' + line + ')</div>'; return true; };
+
+/* =========================================================
+   FLAPFISH — engine inicial
+   Peixe com física ajustada (mesmos valores "leves" do FlapFoco),
+   corais como obstáculo principal, bolhas de fundo, moedas por coral.
+   Hooks de Ads/Analytics prontos pra ligar depois (mesmo padrão do FlapFoco).
+   ========================================================= */
+
+const CONFIG = {
+  gravity: 0.20,
+  flapForce: -5.25,
+  maxFallSpeed: 7,
+  gapBase: 220,
+  gapMin: 165,
+  speedBase: 1.9,
+  speedMax: 3.3,
+  spacing: 260,
+  difficultyRampScore: 25,
+  groundHeight: 60
+};
+
+const store = {
+  get(key, def) {
+    try { const v = localStorage.getItem(key); return v === null ? def : JSON.parse(v); }
+    catch(e){ return def; }
+  },
+  set(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
+};
+
+let state = {
+  best: store.get('flapfish_best', 0),
+  coins: store.get('flapfish_coins', 0)
+};
+
+// ---- Ads/Analytics hooks (mesmo padrão do FlapFoco — liga o AdMob de verdade depois) ----
+const Ads = {
+  showBanner() { console.log('[ADS] showBanner()'); },
+  showInterstitial() { console.log('[ADS] showInterstitial()'); },
+  showRewarded(onReward) { console.log('[ADS] showRewarded()'); setTimeout(onReward, 600); }
+};
+const Analytics = {
+  log(event, params) { console.log('[ANALYTICS]', event, params || {}); }
+};
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ---- bolhas de fundo (atmosfera) ----
+let bubbles = [];
+function initBubbles() {
+  bubbles = [];
+  for (let i=0;i<18;i++) {
+    bubbles.push({
+      x: Math.random()*canvas.width, y: Math.random()*canvas.height,
+      r: 3+Math.random()*7, speed: 0.4+Math.random()*0.9, drift: (Math.random()-0.5)*0.4
+    });
+  }
+}
+initBubbles();
+function updateDrawBubbles() {
+  bubbles.forEach(b => {
+    b.y -= b.speed;
+    b.x += Math.sin(b.y*0.02)*b.drift;
+    if (b.y < -10) { b.y = canvas.height+10; b.x = Math.random()*canvas.width; }
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
+function drawWater() {
+  const grad = ctx.createLinearGradient(0,0,0,canvas.height);
+  grad.addColorStop(0, '#1ea7d6');
+  grad.addColorStop(0.5, '#0f6f9c');
+  grad.addColorStop(1, '#053854');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // raios de luz de superfície (sutis)
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  ctx.fillStyle = '#fff';
+  for (let i=0;i<4;i++) {
+    const bx = (i*canvas.width/3.2 + bgOffset*0.1) % (canvas.width+200) - 100;
+    ctx.beginPath();
+    ctx.moveTo(bx, 0);
+    ctx.lineTo(bx+70, 0);
+    ctx.lineTo(bx-40, canvas.height);
+    ctx.lineTo(bx-110, canvas.height);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawSeabed() {
+  const y = canvas.height - CONFIG.groundHeight;
+  ctx.fillStyle = '#c2a25a';
+  ctx.fillRect(0, y, canvas.width, CONFIG.groundHeight);
+  ctx.fillStyle = '#a9884a';
+  const scroll = bgOffset % 30;
+  for (let x=-scroll; x<canvas.width; x+=30) {
+    ctx.beginPath();
+    ctx.ellipse(x+15, y+8, 12, 5, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// ---- FISH ----
+let fish = { x:0, y:0, vy:0, r:17, rot:0, finT:0 };
+let obstacles = [], score = 0, difficultyLevel = 0, gameRunning = false;
+let bgOffset = 0;
+
+function resetGame() {
+  fish = { x: canvas.width*0.28, y: canvas.height/2, vy:0, r:17, rot:0, finT:0 };
+  obstacles = [];
+  score = 0;
+  difficultyLevel = 0;
+  spawnObstacle();
+}
+
+function spawnObstacle() {
+  const gap = Math.max(CONFIG.gapBase - difficultyLevel*6, CONFIG.gapMin);
+  const playableH = canvas.height - CONFIG.groundHeight;
+  const margin = 60;
+  const gapY = margin + Math.random()*(playableH - margin*2 - gap);
+  obstacles.push({ x: canvas.width + 40, gapY, gap, passed:false, w:60 });
+}
+function obstacleSpeed() { return Math.min(CONFIG.speedBase + difficultyLevel*0.18, CONFIG.speedMax); }
+
+function flap() {
+  if (!gameRunning) return;
+  fish.vy = CONFIG.flapForce;
+  fish.finT = 1;
+}
+
+function updateGame() {
+  bgOffset += 1;
+  if (!gameRunning) return;
+
+  fish.vy += CONFIG.gravity;
+  fish.vy = Math.min(fish.vy, CONFIG.maxFallSpeed);
+  fish.y += fish.vy;
+  fish.rot = Math.max(-30, Math.min(70, fish.vy*4));
+  fish.finT = Math.max(0, fish.finT - 0.06);
+
+  const speed = obstacleSpeed();
+  const playableH = canvas.height - CONFIG.groundHeight;
+
+  obstacles.forEach(o => o.x -= speed);
+  if (obstacles.length && obstacles[obstacles.length-1].x < canvas.width - CONFIG.spacing) spawnObstacle();
+  obstacles = obstacles.filter(o => o.x > -80);
+
+  if (fish.y - fish.r < 0 || fish.y + fish.r > playableH) { return endGame(); }
+
+  let hit = false;
+  obstacles.forEach(o => {
+    if (!o.passed && o.x + o.w < fish.x - fish.r) {
+      o.passed = true;
+      score++;
+      state.coins++;
+      store.set('flapfish_coins', state.coins);
+      document.getElementById('coinCount').textContent = '🪙 ' + state.coins;
+      if (score % CONFIG.difficultyRampScore === 0) difficultyLevel++;
+    }
+    const inX = fish.x + fish.r > o.x && fish.x - fish.r < o.x + o.w;
+    const inGapTop = fish.y - fish.r < o.gapY;
+    const inGapBottom = fish.y + fish.r > o.gapY + o.gap;
+    if (inX && (inGapTop || inGapBottom)) hit = true;
+  });
+  if (hit) return endGame();
+
+  const scoreEl = document.getElementById('scoreDisplay');
+  if (scoreEl.textContent != score) {
+    scoreEl.textContent = score;
+    scoreEl.classList.remove('scorePop'); void scoreEl.offsetWidth; scoreEl.classList.add('scorePop');
+  }
+}
+
+function endGame() {
+  gameRunning = false;
+  const isNewRecord = score > state.best;
+  if (isNewRecord) { state.best = score; store.set('flapfish_best', state.best); }
+  document.getElementById('bestCount').textContent = '🏆 ' + state.best;
+  Analytics.log('game_over', { score, best: state.best });
+
+  document.getElementById('scoreDisplay').classList.add('hidden');
+  document.getElementById('finalScoreVal').textContent = score;
+  document.getElementById('finalBestVal').textContent = state.best;
+  document.getElementById('newRecord').classList.toggle('hidden', !isNewRecord);
+  document.getElementById('gameOverScreen').classList.remove('hidden');
+  Ads.showInterstitial();
+}
+
+// ---- draw fish (corpo oval, cauda, barbatana, olho) ----
+function drawFish() {
+  const playableH = canvas.height - CONFIG.groundHeight;
+  const shadowScale = Math.max(0.3, 1 - (playableH - fish.y) / playableH * 0.5);
+  ctx.save();
+  ctx.globalAlpha = 0.18 * shadowScale;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(fish.x, playableH+6, fish.r*0.9*shadowScale, fish.r*0.3*shadowScale, 0,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(fish.x, fish.y);
+  ctx.rotate(fish.rot * Math.PI/180);
+  const stretch = Math.max(-0.15, Math.min(0.25, fish.vy/26));
+  ctx.scale(1-stretch*0.5, 1+stretch*0.5);
+
+  const r = fish.r;
+  const tailWag = Math.sin(bgOffset*0.25)*0.35 + fish.finT*0.6;
+
+  // cauda
+  ctx.save();
+  ctx.translate(-r*0.85, 0);
+  ctx.rotate(tailWag);
+  ctx.fillStyle = '#ff7a00';
+  ctx.beginPath();
+  ctx.moveTo(0,-r*0.5);
+  ctx.lineTo(-r*0.9, 0);
+  ctx.lineTo(0, r*0.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // corpo
+  const bodyGrad = ctx.createRadialGradient(-r*0.2,-r*0.3,2, 0,0, r*1.2);
+  bodyGrad.addColorStop(0, '#ffcf6e');
+  bodyGrad.addColorStop(1, '#ff9500');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(0,0, r*0.95, r*0.72, 0,0,Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1.3;
+  ctx.stroke();
+
+  // barriga clara
+  ctx.fillStyle = 'rgba(255,250,235,0.85)';
+  ctx.beginPath();
+  ctx.ellipse(0, r*0.28, r*0.6, r*0.3, 0,0,Math.PI*2);
+  ctx.fill();
+
+  // barbatana de cima
+  ctx.save();
+  ctx.rotate(-0.2 - fish.finT*0.8);
+  ctx.fillStyle = '#ff7a00';
+  ctx.beginPath();
+  ctx.moveTo(-r*0.1,-r*0.5);
+  ctx.lineTo(r*0.15,-r*1.05);
+  ctx.lineTo(r*0.35,-r*0.45);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // olho
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(r*0.35,-r*0.12, r*0.28, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.arc(r*0.46,-r*0.12, r*0.14, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(r*0.5,-r*0.2, r*0.06, 0, Math.PI*2); ctx.fill();
+
+  // boca
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(r*0.85, r*0.05, r*0.18, 0.2*Math.PI, 0.8*Math.PI);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// ---- draw corais (obstáculo principal, mesma função dos canos) ----
+function drawObstacles() {
+  const playableH = canvas.height - CONFIG.groundHeight;
+  obstacles.forEach(o => {
+    drawCoralSegment(o.x, 0, o.w, o.gapY, true);
+    drawCoralSegment(o.x, o.gapY+o.gap, o.w, playableH - (o.gapY+o.gap), false);
+  });
+}
+function drawCoralSegment(x,y,w,h,isTop) {
+  if (h <= 0) return;
+  const grad = ctx.createLinearGradient(x,0,x+w,0);
+  grad.addColorStop(0, '#e0507a');
+  grad.addColorStop(0.5, '#ff7a9c');
+  grad.addColorStop(1, '#e0507a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(x,y,w,h);
+
+  // textura simples: bolinhas de coral
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  const count = Math.floor(h/26);
+  for (let i=0;i<count;i++) {
+    const cy = isTop ? h - i*26 - 13 : y + i*26 + 13;
+    ctx.beginPath();
+    ctx.arc(x+w*0.3, cy, 8, 0, Math.PI*2);
+    ctx.arc(x+w*0.7, cy+10, 6, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  const capH = 20;
+  ctx.fillStyle = '#c23a5c';
+  const capY = isTop ? y+h-capH : y;
+  ctx.fillRect(x-5, capY, w+10, capH);
+}
+
+function loop() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawWater();
+  updateDrawBubbles();
+  updateGame();
+  drawSeabed();
+  drawObstacles();
+  drawFish();
+  requestAnimationFrame(loop);
+}
+
+// ---- UI wiring ----
+document.getElementById('bestCount').textContent = '🏆 ' + state.best;
+document.getElementById('coinCount').textContent = '🪙 ' + state.coins;
+
+function startGame() {
+  document.getElementById('menuScreen').classList.add('hidden');
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  document.getElementById('scoreDisplay').classList.remove('hidden');
+  resetGame();
+  gameRunning = true;
+  Analytics.log('game_start');
+}
+
+document.getElementById('playBtn').addEventListener('click', startGame);
+document.getElementById('restartBtn').addEventListener('click', startGame);
+document.getElementById('menuBtn').addEventListener('click', () => {
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  document.getElementById('menuScreen').classList.remove('hidden');
+});
+
+canvas.addEventListener('pointerdown', (e) => { if (e.cancelable) e.preventDefault(); flap(); }, { passive:false });
+canvas.addEventListener('touchstart', (e) => { if (e.cancelable) e.preventDefault(); flap(); }, { passive:false });
+window.addEventListener('keydown', e => { if (e.code === 'Space') flap(); });
+
+// ---- start ----
+Ads.showBanner();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
