@@ -1,206 +1,65 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>FlapFish — Premium Edition</title>
-<style>
-* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-html,body { width:100%; height:100%; overflow:hidden; background:#031525; font-family:'Segoe UI', system-ui, -apple-system, sans-serif; }
-#gameCanvas { display:block; margin:0 auto; touch-action:manipulation; }
-#ui { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
-.btn { pointer-events:auto; }
-
-#topBar { position:absolute; top:16px; left:0; width:100%; display:flex; justify-content:space-between; padding:0 20px; z-index: 10; }
-#scoreDisplay {
-  color:#fff; font-size:52px; font-weight:900; 
-  text-shadow:0 4px 0 rgba(0,0,0,.3), 0 0 25px rgba(95,224,255,.6);
-  text-align:center; width:100%; position:absolute; top:20px; letter-spacing:1px;
-}
-.scorePop { animation: scorePop .25s ease-out; }
-@keyframes scorePop { 0%{ transform:scale(1); } 50%{ transform:scale(1.3); color:#ffe27a; } 100%{ transform:scale(1); } }
-
-.badgeInfo {
-  color:#ffe27a; font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px;
-  background:rgba(2, 18, 31, 0.65); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  padding:8px 16px; border-radius:24px; border:1px solid rgba(255,255,255,.18);
-  box-shadow: 0 6px 16px rgba(0,0,0,.35);
-}
-
-#menuScreen, #gameOverScreen, #shopScreen {
-  position:absolute; top:0; left:0; width:100%; height:100%;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  pointer-events:auto;
-  background: radial-gradient(circle at center, rgba(6,38,61,0.65), rgba(1,10,18,0.88));
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  animation: fadeInScale .3s cubic-bezier(.18,.89,.32,1.28);
-  color:#fff; text-align:center;
-}
-@keyframes fadeInScale { from { opacity:0; transform:scale(.92); } to { opacity:1; transform:scale(1); } }
-.hidden { display:none !important; }
-
-.card {
-  background: rgba(255,255,255,.07);
-  border:1px solid rgba(255,255,255,.2);
-  border-radius:24px;
-  padding:28px 24px;
-  box-shadow: 0 16px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.15);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  max-width:340px; width:88%;
-}
-h1 {
-  font-size:46px; color:#5fe0ff; margin-bottom:4px; letter-spacing:1px;
-  text-shadow: 0 4px 0 #005f7a, 0 8px 30px rgba(95,224,255,.45);
-  animation: titleBounce 2.8s ease-in-out infinite;
-}
-@keyframes titleBounce { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-7px); } }
-.subtitle { font-size:13px; color:rgba(255,255,255,.7); margin-bottom:20px; font-weight: 500; }
-
-.bigBtn {
-  position:relative; overflow:hidden;
-  background: linear-gradient(180deg, #3ec6f0, #167bb0);
-  color:#fff; border:none; padding:15px 28px; font-size:18px;
-  border-radius:16px; margin:7px 0; font-weight:800; width:100%;
-  box-shadow: 0 5px 0 #0d5273, 0 10px 22px rgba(30,150,200,.35);
-  cursor:pointer; letter-spacing:.3px;
-  transition: transform .08s ease, box-shadow .08s ease;
-}
-.bigBtn::after {
-  content:''; position:absolute; top:0; left:-60%; width:40%; height:100%;
-  background: linear-gradient(115deg, transparent, rgba(255,255,255,.5), transparent);
-  transform: skewX(-20deg); animation: btnShine 3.5s ease-in-out infinite;
-}
-@keyframes btnShine { 0%,30%{ left:-60%; } 60%,100%{ left:130%; } }
-.bigBtn:active { transform:translateY(4px); box-shadow:0 1px 0 #0d5273, 0 4px 10px rgba(30,150,200,.3); }
-
-.statRow { display:flex; justify-content:center; gap:14px; margin-bottom:16px; }
-.statChip {
-  background:rgba(0,0,0,.3); border-radius:16px; padding:10px 16px; font-size:12px; font-weight:700;
-  display:flex; flex-direction:column; align-items:center; gap:3px; min-width:85px;
-  border: 1px solid rgba(255,255,255,.08);
-}
-.statChip span.big { font-size:22px; color:#5fe0ff; }
-.newRecordBadge {
-  display:inline-flex; align-items:center; gap:6px; background:linear-gradient(135deg,#ffe27a,#ff9500);
-  color:#3a1d00; font-weight:900; font-size:13px; padding:6px 16px; border-radius:20px;
-  margin-bottom:14px; box-shadow:0 4px 16px rgba(255,180,0,.4); animation: badgeIn .4s cubic-bezier(.18,.89,.32,1.28);
-}
-@keyframes badgeIn { from{ transform:scale(0) rotate(-10deg); opacity:0; } to{ transform:scale(1) rotate(0); opacity:1; } }
-
-/* Estilos da Loja */
-.shopGrid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin:14px 0; }
-.shopItem {
-  background: rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.12); border-radius:14px;
-  padding:12px; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer;
-  transition: all .15s ease;
-}
-.shopItem.selected { border-color:#5fe0ff; background: rgba(95,224,255,.15); box-shadow:0 0 12px rgba(95,224,255,.3); }
-.shopItemName { font-size:12px; font-weight:700; color:#fff; }
-.shopItemPrice { font-size:11px; font-weight:800; color:#ffe27a; }
-</style>
-</head>
-<body>
-<canvas id="gameCanvas"></canvas>
-<div id="ui">
-  <div id="topBar">
-    <div class="badgeInfo" id="coinCount">🪙 0</div>
-    <div class="badgeInfo" id="bestCount">🏆 0</div>
-  </div>
-  <div id="scoreDisplay" class="hidden">0</div>
-
-  <!-- Menu Principal -->
-  <div id="menuScreen">
-    <div class="card">
-      <h1>Flap<span style="color:#ffe27a;">Fish</span></h1>
-      <div class="subtitle">Navegue pelos corais do oceano</div>
-      <button class="bigBtn btn" id="playBtn">▶ Jogar</button>
-      <button class="bigBtn btn" id="shopBtn" style="background:linear-gradient(180deg,#aa42f5,#7221ab);box-shadow:0 5px 0 #4a1173;">🛍️ Loja de Skins</button>
-    </div>
-  </div>
-
-  <!-- Tela de Game Over -->
-  <div id="gameOverScreen" class="hidden">
-    <div class="card">
-      <h1 style="font-size:32px;">Fim de Jogo</h1>
-      <p id="newRecord" class="hidden newRecordBadge">🏆 NOVO RECORDE!</p>
-      <div class="statRow">
-        <div class="statChip">PONTOS<span class="big" id="finalScoreVal">0</span></div>
-        <div class="statChip">RECORDE<span class="big" id="finalBestVal">0</span></div>
-      </div>
-      <button class="bigBtn btn" id="restartBtn">🔄 Jogar Novamente</button>
-      <button class="bigBtn btn" id="menuBtn" style="background:linear-gradient(180deg,#6a6a7a,#45454f);box-shadow:0 5px 0 #2a2a32;">Menu</button>
-    </div>
-  </div>
-
-  <!-- Loja de Skins -->
-  <div id="shopScreen" class="hidden">
-    <div class="card" style="max-width:360px;">
-      <h1 style="font-size:28px;">Skins de Peixe</h1>
-      <div class="shopGrid" id="shopGrid"></div>
-      <button class="bigBtn btn" id="closeShopBtn" style="background:linear-gradient(180deg,#45454f,#2a2a32);box-shadow:0 5px 0 #15151a;">Voltar</button>
-    </div>
-  </div>
-</div>
-
 <script>
 window.onerror = function(msg, url, line) { 
   document.body.innerHTML = '<div style="color:#fff;background:#900;padding:20px;font-size:16px;text-align:center;">ERRO: ' + msg + ' (linha ' + line + ')</div>'; 
   return true; 
 };
 
-/* =========================================================
-   AUDIO SYNTHESIZER (Web Audio API - Sem arquivos externos)
-   ========================================================= */
+/* AUDIO SYNTHESIZER */
 const AudioFx = {
   ctx: null,
   init() {
-    if (!this.ctx) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) this.ctx = new AudioContext();
-    }
-    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    try {
+      if (!this.ctx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) this.ctx = new AudioContext();
+      }
+      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    } catch(e) { console.log('Audio error:', e); }
   },
   playFlap() {
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(160, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.08);
-    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
-    osc.connect(gain); gain.connect(this.ctx.destination);
-    osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+    try {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+    } catch(e){}
   },
   playCoin() {
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(987.77, this.ctx.currentTime); // B5
-    osc.frequency.setValueAtTime(1318.51, this.ctx.currentTime + 0.08); // E6
-    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
-    osc.connect(gain); gain.connect(this.ctx.destination);
-    osc.start(); osc.stop(this.ctx.currentTime + 0.25);
+    try {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(987.77, this.ctx.currentTime);
+      osc.frequency.setValueAtTime(1318.51, this.ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + 0.25);
+    } catch(e){}
   },
   playHit() {
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(140, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.2);
-    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
-    osc.connect(gain); gain.connect(this.ctx.destination);
-    osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+    try {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+    } catch(e){}
   }
 };
 
-/* =========================================================
-   CONFIGURAÇÕES & ESTADO
-   ========================================================= */
 const CONFIG = {
   gravity: 0.21,
   flapForce: -5.3,
@@ -236,14 +95,6 @@ let state = {
   unlockedSkins: store.get('flapfish_unlocked', ['clown'])
 };
 
-const Ads = {
-  showBanner() { console.log('[ADS] Banner exibido'); },
-  showInterstitial() { console.log('[ADS] Interstitial exibido'); }
-};
-const Analytics = {
-  log(event, params) { console.log('[ANALYTICS]', event, params || {}); }
-};
-
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 function resize() {
@@ -253,18 +104,11 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-/* =========================================================
-   SISTEMA DE PARTÍCULAS E EFETOS
-   ========================================================= */
 let particles = [];
 function addBubbleParticle(x, y) {
   particles.push({
-    x, y,
-    vx: -1 - Math.random() * 1.5,
-    vy: (Math.random() - 0.5) * 1.2,
-    r: 2 + Math.random() * 4,
-    alpha: 0.8,
-    type: 'bubble'
+    x, y, vx: -1 - Math.random() * 1.5, vy: (Math.random() - 0.5) * 1.2,
+    r: 2 + Math.random() * 4, alpha: 0.8, type: 'bubble'
   });
 }
 
@@ -273,13 +117,8 @@ function addSparkleParticle(x, y) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 1 + Math.random() * 3;
     particles.push({
-      x, y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      r: 2 + Math.random() * 3,
-      alpha: 1,
-      color: '#ffe27a',
-      type: 'sparkle'
+      x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      r: 2 + Math.random() * 3, alpha: 1, color: '#ffe27a', type: 'sparkle'
     });
   }
 }
@@ -287,44 +126,28 @@ function addSparkleParticle(x, y) {
 function updateDrawParticles() {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.alpha -= 0.02;
-
-    if (p.alpha <= 0) {
-      particles.splice(i, 1);
-      continue;
-    }
-
+    p.x += p.vx; p.y += p.vy; p.alpha -= 0.02;
+    if (p.alpha <= 0) { particles.splice(i, 1); continue; }
     ctx.save();
     ctx.globalAlpha = Math.max(0, p.alpha);
     if (p.type === 'bubble') {
-      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.stroke();
     } else {
       ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
   }
 }
 
-// Bolhas de fundo
 let bgBubbles = [];
 function initBgBubbles() {
   bgBubbles = [];
   for (let i = 0; i < 20; i++) {
     bgBubbles.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      r: 2 + Math.random() * 6,
-      speed: 0.3 + Math.random() * 0.8,
-      drift: (Math.random() - 0.5) * 0.5
+      x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+      r: 2 + Math.random() * 6, speed: 0.3 + Math.random() * 0.8, drift: (Math.random() - 0.5) * 0.5
     });
   }
 }
@@ -335,78 +158,32 @@ function updateDrawBgBubbles() {
     b.y -= b.speed;
     b.x += Math.sin(b.y * 0.02) * b.drift;
     if (b.y < -10) { b.y = canvas.height + 10; b.x = Math.random() * canvas.width; }
-    ctx.save();
-    ctx.globalAlpha = 0.25;
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
+    ctx.save(); ctx.globalAlpha = 0.25; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
   });
 }
 
-/* =========================================================
-   CENÁRIO E AMBIENTE
-   ========================================================= */
 let bgOffset = 0;
-
 function drawWater() {
   const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  grad.addColorStop(0, '#1da3d0');
-  grad.addColorStop(0.5, '#0b5f8a');
-  grad.addColorStop(1, '#032338');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Raios de luz cáustica
-  ctx.save();
-  ctx.globalAlpha = 0.07;
-  ctx.fillStyle = '#fff';
-  for (let i = 0; i < 5; i++) {
-    const bx = (i * canvas.width / 4 + bgOffset * 0.15) % (canvas.width + 200) - 100;
-    ctx.beginPath();
-    ctx.moveTo(bx, 0);
-    ctx.lineTo(bx + 60, 0);
-    ctx.lineTo(bx - 50, canvas.height);
-    ctx.lineTo(bx - 110, canvas.height);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
+  grad.addColorStop(0, '#1da3d0'); grad.addColorStop(0.5, '#0b5f8a'); grad.addColorStop(1, '#032338');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 function drawSeabed() {
   const y = canvas.height - CONFIG.groundHeight;
   const grad = ctx.createLinearGradient(0, y, 0, canvas.height);
-  grad.addColorStop(0, '#d1b46a');
-  grad.addColorStop(1, '#8c7032');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, y, canvas.width, CONFIG.groundHeight);
-
-  // Detalhes da areia
-  ctx.fillStyle = 'rgba(0,0,0,0.08)';
-  const scroll = bgOffset % 32;
-  for (let x = -scroll; x < canvas.width; x += 32) {
-    ctx.beginPath();
-    ctx.ellipse(x + 16, y + 10, 14, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  grad.addColorStop(0, '#d1b46a'); grad.addColorStop(1, '#8c7032');
+  ctx.fillStyle = grad; ctx.fillRect(0, y, canvas.width, CONFIG.groundHeight);
 }
 
-/* =========================================================
-   ENTIDADES E LÓGICA DO JOGO
-   ========================================================= */
 let fish = { x: 0, y: 0, vy: 0, r: 17, rot: 0, finT: 0, blinkTimer: 0 };
 let obstacles = [], coinsList = [], score = 0, difficultyLevel = 0, gameRunning = false;
 
 function resetGame() {
   fish = { x: canvas.width * 0.28, y: canvas.height / 2, vy: 0, r: 17, rot: 0, finT: 0, blinkTimer: 0 };
-  obstacles = [];
-  coinsList = [];
-  particles = [];
-  score = 0;
-  difficultyLevel = 0;
+  obstacles = []; coinsList = []; particles = [];
+  score = 0; difficultyLevel = 0;
   spawnObstacle();
 }
 
@@ -419,15 +196,8 @@ function spawnObstacle() {
   
   obstacles.push({ x: canvas.width + 40, gapY, gap, passed: false, w: 62, color: coralColor });
 
-  // 60% de chance de gerar uma moeda dentro do vão
   if (Math.random() < 0.6) {
-    coinsList.push({
-      x: canvas.width + 40 + 31,
-      y: gapY + gap / 2,
-      r: 10,
-      collected: false,
-      rot: 0
-    });
+    coinsList.push({ x: canvas.width + 40 + 31, y: gapY + gap / 2, r: 10, collected: false, rot: 0 });
   }
 }
 
@@ -440,7 +210,6 @@ function flap() {
   fish.finT = 1;
   AudioFx.playFlap();
   addBubbleParticle(fish.x - fish.r, fish.y);
-  
   if (navigator.vibrate) navigator.vibrate(12);
 }
 
@@ -453,22 +222,16 @@ function updateGame() {
   fish.y += fish.vy;
   fish.rot = Math.max(-28, Math.min(65, fish.vy * 3.8));
   fish.finT = Math.max(0, fish.finT - 0.05);
-  fish.blinkTimer += 0.02;
 
   const speed = obstacleSpeed();
   const playableH = canvas.height - CONFIG.groundHeight;
 
-  // Atualiza corais
   obstacles.forEach(o => o.x -= speed);
   if (obstacles.length && obstacles[obstacles.length - 1].x < canvas.width - CONFIG.spacing) spawnObstacle();
   obstacles = obstacles.filter(o => o.x > -90);
 
-  // Atualiza moedas coletáveis
   coinsList.forEach(c => {
     c.x -= speed;
-    c.rot += 0.05;
-
-    // Colisão com o peixe
     if (!c.collected) {
       const dist = Math.hypot(fish.x - c.x, fish.y - c.y);
       if (dist < fish.r + c.r) {
@@ -483,10 +246,8 @@ function updateGame() {
   });
   coinsList = coinsList.filter(c => c.x > -40);
 
-  // Colisão com Teto e Chão
   if (fish.y - fish.r < 0 || fish.y + fish.r > playableH) { return endGame(); }
 
-  // Colisão com Corais & Pontuação
   let hit = false;
   obstacles.forEach(o => {
     if (!o.passed && o.x + o.w < fish.x - fish.r) {
@@ -506,7 +267,6 @@ function updateGame() {
   const scoreEl = document.getElementById('scoreDisplay');
   if (scoreEl.textContent != score) {
     scoreEl.textContent = score;
-    scoreEl.classList.remove('scorePop'); void scoreEl.offsetWidth; scoreEl.classList.add('scorePop');
   }
 }
 
@@ -518,45 +278,148 @@ function endGame() {
   const isNewRecord = score > state.best;
   if (isNewRecord) { state.best = score; store.set('flapfish_best', state.best); }
   document.getElementById('bestCount').textContent = '🏆 ' + state.best;
-  Analytics.log('game_over', { score, best: state.best });
 
   document.getElementById('scoreDisplay').classList.add('hidden');
   document.getElementById('finalScoreVal').textContent = score;
   document.getElementById('finalBestVal').textContent = state.best;
   document.getElementById('newRecord').classList.toggle('hidden', !isNewRecord);
   document.getElementById('gameOverScreen').classList.remove('hidden');
-  Ads.showInterstitial();
 }
 
-/* =========================================================
-   RENDERIZAÇÃO DOS ELEMENTOS
-   ========================================================= */
 function drawFish() {
   const currentSkin = SKINS.find(s => s.id === state.activeSkin) || SKINS[0];
-  const playableH = canvas.height - CONFIG.groundHeight;
-  const shadowScale = Math.max(0.2, 1 - (playableH - fish.y) / playableH * 0.5);
-  
-  // Sombra na areia
-  ctx.save();
-  ctx.globalAlpha = 0.2 * shadowScale;
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.ellipse(fish.x, playableH + 8, fish.r * shadowScale, fish.r * 0.3 * shadowScale, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  // Peixe
   ctx.save();
   ctx.translate(fish.x, fish.y);
   ctx.rotate(fish.rot * Math.PI / 180);
-  const stretch = Math.max(-0.15, Math.min(0.2, fish.vy / 25));
-  ctx.scale(1 - stretch * 0.5, 1 + stretch * 0.5);
-
   const r = fish.r;
-  const tailWag = Math.sin(bgOffset * 0.3) * 0.35 + fish.finT * 0.5;
+  
+  ctx.fillStyle = currentSkin.finColor;
+  ctx.beginPath(); ctx.ellipse(-r*0.8, 0, r*0.5, r*0.3, 0, 0, Math.PI*2); ctx.fill();
 
-  // Cauda
-  ctx.save();
-  ctx.translate(-r * 0.85, 0);
-  ctx.rotate(tailWag);
-  ctx.fillStyle = currentSkin
+  const bodyGrad = ctx.createRadialGradient(-r * 0.2, -r * 0.3, 2, 0, 0, r * 1.2);
+  bodyGrad.addColorStop(0, currentSkin.bodyGrad[0]);
+  bodyGrad.addColorStop(1, currentSkin.bodyGrad[1]);
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath(); ctx.ellipse(0, 0, r * 0.98, r * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(r * 0.38, -r * 0.12, r * 0.28, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.arc(r * 0.48, -r * 0.12, r * 0.14, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+}
+
+function drawObstacles() {
+  const playableH = canvas.height - CONFIG.groundHeight;
+  obstacles.forEach(o => {
+    ctx.fillStyle = o.color;
+    ctx.fillRect(o.x, 0, o.w, o.gapY);
+    ctx.fillRect(o.x, o.gapY + o.gap, o.w, playableH - (o.gapY + o.gap));
+  });
+}
+
+function drawCoins() {
+  coinsList.forEach(c => {
+    if (c.collected) return;
+    ctx.fillStyle = '#ffe27a';
+    ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawWater();
+  updateDrawBgBubbles();
+  updateGame();
+  drawSeabed();
+  drawObstacles();
+  drawCoins();
+  updateDrawParticles();
+  drawFish();
+  requestAnimationFrame(loop);
+}
+
+function renderShop() {
+  const grid = document.getElementById('shopGrid');
+  grid.innerHTML = '';
+  SKINS.forEach(skin => {
+    const isUnlocked = state.unlockedSkins.includes(skin.id);
+    const isSelected = state.activeSkin === skin.id;
+    const item = document.createElement('div');
+    item.className = `shopItem ${isSelected ? 'selected' : ''}`;
+    item.innerHTML = `
+      <div class="shopItemName">${skin.name}</div>
+      <div class="shopItemPrice">${isSelected ? 'EM USO' : (isUnlocked ? 'POSSUI' : '🪙 ' + skin.price)}</div>
+    `;
+    item.onclick = (e) => {
+      e.stopPropagation();
+      if (isUnlocked) {
+        state.activeSkin = skin.id;
+        store.set('flapfish_skin', skin.id);
+      } else if (state.coins >= skin.price) {
+        state.coins -= skin.price;
+        state.unlockedSkins.push(skin.id);
+        state.activeSkin = skin.id;
+        store.set('flapfish_coins', state.coins);
+        store.set('flapfish_unlocked', state.unlockedSkins);
+        store.set('flapfish_skin', skin.id);
+        document.getElementById('coinCount').textContent = '🪙 ' + state.coins;
+      }
+      renderShop();
+    };
+    grid.appendChild(item);
+  });
+}
+
+document.getElementById('bestCount').textContent = '🏆 ' + state.best;
+document.getElementById('coinCount').textContent = '🪙 ' + state.coins;
+
+function startGame() {
+  AudioFx.init();
+  document.getElementById('menuScreen').classList.add('hidden');
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  document.getElementById('scoreDisplay').classList.remove('hidden');
+  resetGame();
+  gameRunning = true;
+}
+
+/* EVENTOS DE CLIQUE CORRIGIDOS (Usa apenas 'click' simples para evitar conflito) */
+document.getElementById('playBtn').onclick = function(e) {
+  e.stopPropagation();
+  startGame();
+};
+
+document.getElementById('restartBtn').onclick = function(e) {
+  e.stopPropagation();
+  startGame();
+};
+
+document.getElementById('menuBtn').onclick = function(e) {
+  e.stopPropagation();
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  document.getElementById('menuScreen').classList.remove('hidden');
+};
+
+document.getElementById('shopBtn').onclick = function(e) {
+  e.stopPropagation();
+  renderShop();
+  document.getElementById('menuScreen').classList.add('hidden');
+  document.getElementById('shopScreen').classList.remove('hidden');
+};
+
+document.getElementById('closeShopBtn').onclick = function(e) {
+  e.stopPropagation();
+  document.getElementById('shopScreen').classList.add('hidden');
+  document.getElementById('menuScreen').classList.remove('hidden');
+};
+
+/* TOQUE NA TELA PARA NADAR */
+window.addEventListener('pointerdown', function(e) {
+  if (gameRunning && e.target === canvas) {
+    flap();
+  }
+});
+
+requestAnimationFrame(loop);
+</script>
