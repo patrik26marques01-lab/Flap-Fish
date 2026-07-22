@@ -1,83 +1,347 @@
-<script>
-window.onerror = function(msg, url, line) { 
-  document.body.innerHTML = '<div style="color:#fff;background:#900;padding:20px;font-size:16px;text-align:center;">ERRO: ' + msg + ' (linha ' + line + ')</div>'; 
-  return true; 
-};
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FlapFish</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+html,body { width:100%; height:100%; overflow:hidden; background:#062a3f; font-family:'Segoe UI',Arial,sans-serif; }
+#gameCanvas { display:block; margin:0 auto; touch-action:manipulation; }
+#ui { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+.btn { pointer-events:auto; }
 
-/* AUDIO SYNTHESIZER */
-const AudioFx = {
-  ctx: null,
-  init() {
-    try {
-      if (!this.ctx) {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (AudioContext) this.ctx = new AudioContext();
-      }
-      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-    } catch(e) { console.log('Audio error:', e); }
-  },
-  playFlap() {
-    try {
-      if (!this.ctx) return;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(160, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
-      osc.connect(gain); gain.connect(this.ctx.destination);
-      osc.start(); osc.stop(this.ctx.currentTime + 0.08);
-    } catch(e){}
-  },
-  playCoin() {
-    try {
-      if (!this.ctx) return;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(987.77, this.ctx.currentTime);
-      osc.frequency.setValueAtTime(1318.51, this.ctx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
-      osc.connect(gain); gain.connect(this.ctx.destination);
-      osc.start(); osc.stop(this.ctx.currentTime + 0.25);
-    } catch(e){}
-  },
-  playHit() {
-    try {
-      if (!this.ctx) return;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(140, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
-      osc.connect(gain); gain.connect(this.ctx.destination);
-      osc.start(); osc.stop(this.ctx.currentTime + 0.2);
-    } catch(e){}
-  }
-};
+#topBar { position:absolute; top:16px; left:0; width:100%; display:flex; justify-content:space-between; padding:0 16px; }
+#scoreDisplay {
+  color:#fff; font-size:48px; font-weight:900; text-shadow:0 3px 0 rgba(0,0,0,.25), 0 0 20px rgba(120,220,255,.4);
+  text-align:center; width:100%; position:absolute; top:26px; letter-spacing:1px;
+}
+.scorePop { animation: scorePop .28s ease; }
+@keyframes scorePop { 0%{ transform:scale(1); } 40%{ transform:scale(1.35); } 100%{ transform:scale(1); } }
+
+.coinCount {
+  color:#ffe27a; font-size:16px; font-weight:800; display:flex; align-items:center; gap:6px;
+  background:rgba(4,20,35,.5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  padding:8px 16px; border-radius:24px; border:1px solid rgba(255,255,255,.14);
+  box-shadow: 0 4px 14px rgba(0,0,0,.3);
+}
+.coinCount.pop { animation: coinPop .3s ease; }
+@keyframes coinPop { 0%{transform:scale(1);} 45%{transform:scale(1.22);} 100%{transform:scale(1);} }
+
+#menuScreen, #gameOverScreen, #shopScreen, #missionsScreen, #statsScreen, #achievementPopup {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  pointer-events:auto;
+}
+#menuScreen, #gameOverScreen, #shopScreen, #missionsScreen, #statsScreen {
+  background: radial-gradient(ellipse at 50% 30%, rgba(10,60,90,.55), rgba(2,15,25,.82));
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  animation: fadeInScale .38s cubic-bezier(.2,.9,.3,1.3);
+  color:#fff; text-align:center;
+}
+@keyframes fadeInScale { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:scale(1); } }
+.hidden { display:none !important; }
+
+.card {
+  background: rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:22px;
+  padding:26px 24px 20px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  max-width:340px; width:88%; max-height:84vh; overflow-y:auto;
+}
+h1 {
+  font-size:42px; color:#5fe0ff; margin-bottom:4px; letter-spacing:1px;
+  text-shadow: 0 3px 0 #005f7a, 0 8px 24px rgba(95,224,255,.4);
+  animation: titleBounce 2.6s ease-in-out infinite;
+}
+@keyframes titleBounce { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-6px); } }
+.subtitle { font-size:12px; color:rgba(255,255,255,.6); margin-bottom:10px; }
+
+.menuTip {
+  font-size:11.5px; color:rgba(255,255,255,.8); background:rgba(0,0,0,.25);
+  border-radius:10px; padding:8px 12px; margin-bottom:12px; min-height:32px;
+  display:flex; align-items:center; justify-content:center; transition: opacity .3s ease;
+}
+.menuStatsTeaser { font-size:14px; font-weight:800; color:#ffe27a; margin-bottom:14px; }
+
+.bigBtn {
+  position:relative; overflow:hidden;
+  background: linear-gradient(180deg, #3ec6f0, #1a8fc4);
+  color:#fff; border:none; padding:16px 34px; font-size:19px;
+  border-radius:16px; margin:8px 0; font-weight:800; width:100%;
+  box-shadow: 0 5px 0 #0e5f80, 0 10px 24px rgba(30,150,200,.35);
+  cursor:pointer; letter-spacing:.3px;
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.bigBtn::after {
+  content:''; position:absolute; top:0; left:-60%; width:40%; height:100%;
+  background: linear-gradient(115deg, transparent, rgba(255,255,255,.55), transparent);
+  transform: skewX(-20deg); animation: btnShine 3.2s ease-in-out infinite;
+}
+@keyframes btnShine { 0%,25%{ left:-60%; } 55%,100%{ left:130%; } }
+.bigBtn:active { transform:translateY(4px); box-shadow:0 1px 0 #0e5f80, 0 4px 10px rgba(30,150,200,.3); }
+.bigBtn:disabled { opacity:.6; }
+.bigBtn:disabled::after { display:none; }
+.bigBtn.secondary { background: linear-gradient(180deg, #ff9a3d, #e0703d); box-shadow: 0 5px 0 #a3441a, 0 10px 24px rgba(224,112,61,.3); }
+.bigBtn.ghost { background: linear-gradient(180deg, #6a6a7a, #45454f); box-shadow:0 5px 0 #2a2a32; }
+.bigBtn.ghost::after { display:none; }
+#playBtn { animation: playPulse 2.2s ease-in-out infinite; font-size:21px; }
+@keyframes playPulse {
+  0%,100% { box-shadow: 0 5px 0 #0e5f80, 0 10px 24px rgba(30,150,200,.35); }
+  50% { box-shadow: 0 5px 0 #0e5f80, 0 10px 34px rgba(95,224,255,.65); }
+}
+
+.smallBtn {
+  background: rgba(255,255,255,.08); color:#fff; border:1px solid rgba(255,255,255,.16);
+  padding:9px 20px; font-size:13px; border-radius:12px; margin:6px; cursor:pointer;
+  font-weight:600; transition: background .15s ease, transform .08s ease;
+}
+.smallBtn:active { transform:scale(.95); background: rgba(255,255,255,.16); }
+
+.iconGrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+.iconBtn {
+  position:relative; border:none; border-radius:16px;
+  padding:12px 6px 10px; display:flex; flex-direction:column; align-items:center; gap:4px;
+  font-size:11.5px; font-weight:800; color:#fff; cursor:pointer;
+  box-shadow: 0 5px 0 rgba(0,0,0,.22), 0 8px 18px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.25);
+  transition: transform .09s ease, box-shadow .09s ease;
+  text-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+.iconBtn span.ic { font-size:24px; animation: iconFloat 2.8s ease-in-out infinite; }
+.iconBtn:nth-child(2) span.ic { animation-delay: .3s; }
+.iconBtn:nth-child(3) span.ic { animation-delay: .6s; }
+.iconBtn:nth-child(4) span.ic { animation-delay: .9s; }
+@keyframes iconFloat { 0%,100%{ transform:translateY(0) rotate(0);} 50%{ transform:translateY(-3px) rotate(-4deg);} }
+.iconBtn:active { transform:translateY(4px) scale(.96); box-shadow: 0 1px 0 rgba(0,0,0,.22), 0 3px 8px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.25); }
+
+.theme-fish { background: linear-gradient(160deg, #2dd4bf, #0d9488); }
+.theme-missions { background: linear-gradient(160deg, #c084fc, #7c3aed); }
+.theme-stats { background: linear-gradient(160deg, #38bdf8, #2563eb); }
+.theme-music { background: linear-gradient(160deg, #fb7185, #db2777); }
+.theme-music.musicOn { background: linear-gradient(160deg, #fbbf24, #f59e0b); }
+
+.miniBadge {
+  position:absolute; top:-6px; right:-6px; background:#fff; color:#062a3f;
+  font-size:10px; font-weight:900; border-radius:20px; padding:2px 7px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.35); border:2px solid rgba(255,255,255,.5);
+}
+#missionsBadge { background:#ff3b3b; color:#fff; }
+
+.statRow { display:flex; justify-content:center; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
+.statChip {
+  background:rgba(0,0,0,.28); border-radius:14px; padding:8px 14px; font-size:12px; font-weight:700;
+  display:flex; flex-direction:column; align-items:center; gap:2px; min-width:64px;
+}
+.statChip span.big { font-size:19px; color:#5fe0ff; }
+.newRecordBadge {
+  display:inline-flex; align-items:center; gap:6px; background:linear-gradient(135deg,#a0f0ff,#3ec6f0);
+  color:#003347; font-weight:800; font-size:13px; padding:6px 14px; border-radius:20px;
+  margin-bottom:14px; box-shadow:0 4px 14px rgba(62,198,240,.4); animation: badgeIn .4s ease;
+}
+@keyframes badgeIn { from{ transform:scale(0) rotate(-8deg); opacity:0; } to{ transform:scale(1) rotate(0); opacity:1; } }
+
+.skinRow { display:flex; gap:10px; margin:14px 0 6px; flex-wrap:wrap; justify-content:center; }
+.skinItem {
+  background: rgba(255,255,255,.06); border:2px solid transparent; border-radius:14px; padding:10px 8px;
+  width:76px; cursor:pointer; transition: transform .1s ease, border-color .15s ease, background .15s ease;
+}
+.skinItem:active { transform:scale(.93); }
+.skinItem.selected { border-color:#5fe0ff; background:rgba(95,224,255,.14); animation: wiggle 2.4s ease-in-out infinite; }
+.skinItem.selected canvas { animation: bob 1.6s ease-in-out infinite; }
+.skinItem.locked { opacity:.6; }
+.skinItem canvas { width:38px; height:38px; display:block; margin:0 auto; filter: drop-shadow(0 3px 4px rgba(0,0,0,.35)); }
+.skinItem .skinLabel { font-size:10px; margin-top:6px; font-weight:700; }
+@keyframes wiggle { 0%,100%{ transform:rotate(0);} 50%{ transform:rotate(-2deg);} }
+@keyframes bob { 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(-3px);} }
+@keyframes popIn { 0%{ transform:scale(0) rotate(-10deg); opacity:0;} 70%{ transform:scale(1.12) rotate(3deg); opacity:1;} 100%{ transform:scale(1) rotate(0);} }
+
+.missionItem {
+  background:rgba(255,255,255,.06); border-radius:14px; padding:12px 14px; margin-bottom:10px; text-align:left;
+}
+.missionItem .mLabel { font-size:13px; font-weight:700; margin-bottom:6px; display:flex; justify-content:space-between; }
+.missionBarBg { height:9px; background:rgba(255,255,255,.12); border-radius:6px; overflow:hidden; }
+.missionBarFill { height:100%; background:linear-gradient(90deg,#5fe0ff,#1a8fc4); border-radius:6px; transition: width .3s ease; }
+.missionDone { color:#7cff9e; font-size:11px; font-weight:800; margin-top:4px; }
+
+.lbRow { display:flex; justify-content:space-between; font-size:13px; padding:7px 4px; border-bottom:1px solid rgba(255,255,255,.08); }
+.lbRow:last-child { border-bottom:none; }
+
+#achievementPopup { background:transparent !important; align-items:flex-start; pointer-events:none; backdrop-filter:none !important; animation:none !important; }
+.achToast {
+  background: linear-gradient(135deg, #5fe0ff, #1a8fc4); color:#00293a; padding:12px 22px; border-radius:14px; font-weight:800;
+  margin-top:64px; box-shadow:0 8px 20px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);
+  animation: slideDown .45s cubic-bezier(.2,.9,.3,1.3), fadeOut .4s ease 2.6s forwards;
+  font-size:14px;
+}
+@keyframes slideDown { from{transform:translateY(-50px) scale(.8);opacity:0;} to{transform:translateY(0) scale(1);opacity:1;} }
+@keyframes fadeOut { to{opacity:0; transform:translateY(-10px);} }
+
+#reviveTimer { font-size:13px; color:rgba(255,255,255,.5); margin-top:4px; }
+
+#unboxOverlay {
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.55); z-index:50; pointer-events:none;
+}
+.unboxBox { font-size:70px; animation: boxShake .55s ease-in-out; }
+@keyframes boxShake {
+  0%,100% { transform:rotate(0) scale(1); }
+  15% { transform:rotate(-8deg) scale(1.05); } 30% { transform:rotate(8deg) scale(1.05); }
+  45% { transform:rotate(-10deg) scale(1.1); } 60% { transform:rotate(10deg) scale(1.1); }
+  80% { transform:rotate(-4deg) scale(1.15); }
+}
+.unboxReveal { display:flex; flex-direction:column; align-items:center; gap:10px; animation: revealPop .5s cubic-bezier(.3,1.6,.5,1); }
+@keyframes revealPop { 0%{ transform:scale(0) rotate(-20deg); opacity:0; } 70%{ transform:scale(1.15) rotate(5deg); opacity:1; } 100%{ transform:scale(1) rotate(0); } }
+.unboxEmoji { font-size:90px; filter: drop-shadow(0 8px 20px rgba(0,0,0,.5)); }
+.unboxName { color:#5fe0ff; font-size:24px; font-weight:900; text-shadow:0 2px 0 rgba(0,0,0,.4); }
+.confettiPiece { position:absolute; top:-20px; width:8px; height:8px; opacity:.9; animation: confettiFall linear forwards; }
+@keyframes confettiFall { 0% { transform: translateY(0) rotate(0deg); opacity:1; } 100% { transform: translateY(110vh) rotate(540deg); opacity:0.2; } }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="ui">
+  <div id="topBar">
+    <div class="coinCount" id="coinCount">🪙 0</div>
+    <div class="coinCount" id="bestCount">🏆 0</div>
+  </div>
+  <div id="scoreDisplay" class="hidden">0</div>
+
+  <div id="menuScreen">
+    <div class="card">
+      <h1>Flap<span style="color:#ffcc00;">Fish</span></h1>
+      <div class="menuTip" id="menuTip">💡 toque pra nadar entre os corais</div>
+      <div class="menuStatsTeaser">🏆 <span id="menuBest">0</span> &nbsp;·&nbsp; 🪙 <span id="menuCoins">0</span></div>
+      <button class="bigBtn btn" id="playBtn">▶ &nbsp;Jogar</button>
+      <div class="iconGrid">
+        <button class="iconBtn btn theme-fish" id="shopBtn">
+          <span class="ic">🐟</span>Peixes
+          <span class="miniBadge" id="fishBadge">0/8</span>
+        </button>
+        <button class="iconBtn btn theme-missions" id="missionsBtn">
+          <span class="ic">🎯</span>Missões
+          <span class="miniBadge hidden" id="missionsBadge">!</span>
+        </button>
+        <button class="iconBtn btn theme-stats" id="statsBtn"><span class="ic">📊</span>Stats</button>
+        <button class="iconBtn btn theme-music" id="musicBtn"><span class="ic">🎵</span><span id="musicLabel">Música</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameOverScreen" class="hidden">
+    <div class="card">
+      <h1 style="font-size:30px;">Fim de Jogo</h1>
+      <p id="newRecord" class="hidden newRecordBadge">🏆 Novo recorde!</p>
+      <div class="statRow">
+        <div class="statChip">PONTOS<span class="big" id="finalScoreVal">0</span></div>
+        <div class="statChip">RECORDE<span class="big" id="finalBestVal">0</span></div>
+      </div>
+      <button class="bigBtn btn" id="reviveBtn">🎥 Reviver (assistir vídeo)</button>
+      <div id="reviveTimer" class="hidden"></div>
+      <button class="bigBtn secondary btn" id="restartBtn">🔄 Jogar de novo</button>
+      <button class="bigBtn ghost btn" id="shareBtn">📤 Compartilhar</button>
+      <button class="smallBtn btn" id="menuBtn">Menu</button>
+    </div>
+  </div>
+
+  <div id="shopScreen" class="hidden">
+    <div class="card">
+      <h1 style="font-size:26px;">🐠 Peixes</h1>
+      <div class="subtitle">colecione todos e nade com estilo!</div>
+      <div class="skinRow" id="skinRow"></div>
+      <button class="smallBtn btn" id="closeShopBtn">Fechar</button>
+    </div>
+  </div>
+
+  <div id="missionsScreen" class="hidden">
+    <div class="card">
+      <h1 style="font-size:24px;">Missões de hoje</h1>
+      <div class="subtitle">renovam a cada dia</div>
+      <div id="missionsList"></div>
+      <button class="smallBtn btn" id="closeMissionsBtn">Fechar</button>
+    </div>
+  </div>
+
+  <div id="statsScreen" class="hidden">
+    <div class="card">
+      <h1 style="font-size:24px;">Estatísticas</h1>
+      <div class="statRow">
+        <div class="statChip">PARTIDAS<span class="big" id="statGames">0</span></div>
+        <div class="statChip">CORAIS<span class="big" id="statPipes">0</span></div>
+        <div class="statChip">PERFEITOS<span class="big" id="statPerfects">0</span></div>
+      </div>
+      <div class="subtitle" style="margin-top:6px;">últimas 5 partidas</div>
+      <div id="leaderboardList"></div>
+      <button class="smallBtn btn" id="closeStatsBtn">Fechar</button>
+    </div>
+  </div>
+
+  <div id="achievementPopup"></div>
+</div>
+
+<script>
+window.onerror = function(msg, url, line) { document.body.innerHTML = '<div style="color:#fff;background:red;padding:20px;font-size:16px;">ERRO: ' + msg + ' (linha ' + line + ')</div>'; return true; };
+
+/* =========================================================
+   FLAPFISH — engine premium
+   Fundo: mar em camadas (raios de luz, recife distante, bolhas)
+   Peixe: nadadeiras animadas, squash&stretch, sombra, rastro por skin
+   Skins com efeito: normal / fogo(lava) / gelo / arco-íris
+   Bolha protetora (escudo), PERFEITO! com combo, missões diárias,
+   stats + leaderboard, haptics, compartilhar, música ambiente
+   ========================================================= */
 
 const CONFIG = {
-  gravity: 0.21,
-  flapForce: -5.3,
-  maxFallSpeed: 7.5,
-  gapBase: 210,
-  gapMin: 155,
-  speedBase: 2.0,
-  speedMax: 3.5,
-  spacing: 250,
-  difficultyRampScore: 20,
-  groundHeight: 65
+  gravity: 0.20,
+  flapForce: -5.25,
+  maxFallSpeed: 7,
+  gapBase: 220,
+  gapMin: 160,
+  speedBase: 1.9,
+  speedMax: 3.3,
+  spacing: 260,
+  difficultyRampScore: 25,
+  interstitialEveryNGameOvers: 3,
+  reviveInvincibleMs: 1000,
+  groundHeight: 88,
+  shieldChance: 0.16
 };
 
 const SKINS = [
-  { id: 'clown', name: 'Nemo', price: 0, bodyGrad: ['#ffcf6e', '#ff8500'], finColor: '#ff6200' },
-  { id: 'gold', name: 'Rei Dourado', price: 50, bodyGrad: ['#fff4a3', '#ffd700'], finColor: '#ffaa00' },
-  { id: 'cyber', name: 'Neon Cyber', price: 120, bodyGrad: ['#5fe0ff', '#0077ff'], finColor: '#aa00ff' },
-  { id: 'shark', name: 'Tubarãozinho', price: 250, bodyGrad: ['#a0b2c6', '#4a627a'], finColor: '#2d3e50' }
+  { id:'orange', name:'Laranjinho', emoji:'🐠', color:'#ff9500', color2:'#ffcf6e', cost:0, effect:'none', size:1.0 },
+  { id:'blue', name:'Azulado', emoji:'🐟', color:'#2196f3', color2:'#6ec6ff', cost:50, effect:'none', size:0.95 },
+  { id:'green', name:'Verdinho', emoji:'🐡', color:'#26a65b', color2:'#7be0a8', cost:80, effect:'none', size:1.05 },
+  { id:'purple', name:'Roxinho', emoji:'🐙', color:'#9c27b0', color2:'#cf7de0', cost:120, effect:'none', size:0.98 },
+  { id:'gold', name:'Dourado', emoji:'🐡', color:'#ffd700', color2:'#fff2a8', cost:200, effect:'none', size:1.12 },
+  { id:'fire', name:'Lava', emoji:'🔥', color:'#ff5722', color2:'#ffab40', cost:150, effect:'fire', size:1.0 },
+  { id:'ice', name:'Gelo', emoji:'❄️', color:'#4fc3f7', color2:'#e1f5fe', cost:150, effect:'ice', size:0.92 },
+  { id:'rainbow', name:'Arco-Íris', emoji:'🌈', color:'#ff4500', color2:'#ffcc00', cost:300, effect:'rainbow', size:1.02 }
+];
+const BASE_FISH_R = 17;
+function fishRadiusForSkin(skin) { return BASE_FISH_R * (skin.size || 1); }
+
+const ACHIEVEMENTS = [
+  { id:'score10', label:'🥉 10 pontos!', check: s => s.best >= 10 },
+  { id:'score50', label:'🥈 50 pontos!', check: s => s.best >= 50 },
+  { id:'score100', label:'🥇 100 pontos!', check: s => s.best >= 100 }
+];
+
+const MISSION_POOL = [
+  { id:'pipes15', label:'Nade por 15 corais', target:15, key:'pipesToday', reward:15 },
+  { id:'pipes30', label:'Nade por 30 corais', target:30, key:'pipesToday', reward:25 },
+  { id:'perfect1', label:'Consiga 1 PERFEITO', target:1, key:'perfectsToday', reward:15 },
+  { id:'perfect3', label:'Consiga 3 PERFEITOs', target:3, key:'perfectsToday', reward:25 },
+  { id:'games2', label:'Jogue 2 partidas', target:2, key:'gamesToday', reward:10 },
+  { id:'games4', label:'Jogue 4 partidas', target:4, key:'gamesToday', reward:20 }
+];
+
+const MENU_TIPS = [
+  '💡 toque pra nadar entre os corais',
+  '⭐ passe bem no meio do vão pra ganhar PERFEITO!',
+  '🫧 pegue a bolha: ela te protege de uma batida',
+  '🐠 desbloqueie peixes com efeitos especiais na loja',
+  '🎯 complete as missões diárias pra ganhar moedas extra'
 ];
 
 const store = {
@@ -88,338 +352,49 @@ const store = {
   set(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
 };
 
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+
 let state = {
   best: store.get('flapfish_best', 0),
   coins: store.get('flapfish_coins', 0),
-  activeSkin: store.get('flapfish_skin', 'clown'),
-  unlockedSkins: store.get('flapfish_unlocked', ['clown'])
+  ownedSkins: store.get('flapfish_owned_skins', ['orange']),
+  currentSkin: store.get('flapfish_current_skin', 'orange'),
+  unlockedAch: store.get('flapfish_achievements', []),
+  gameOverCount: store.get('flapfish_go_count', 0),
+  totalGames: store.get('flapfish_stat_games', 0),
+  totalPipes: store.get('flapfish_stat_pipes', 0),
+  totalPerfects: store.get('flapfish_stat_perfects', 0),
+  leaderboard: store.get('flapfish_leaderboard', []),
+  musicOn: store.get('flapfish_music_on', false),
+  missions: store.get('flapfish_missions', null)
 };
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resize);
-resize();
-
-let particles = [];
-function addBubbleParticle(x, y) {
-  particles.push({
-    x, y, vx: -1 - Math.random() * 1.5, vy: (Math.random() - 0.5) * 1.2,
-    r: 2 + Math.random() * 4, alpha: 0.8, type: 'bubble'
-  });
-}
-
-function addSparkleParticle(x, y) {
-  for(let i=0; i<8; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 1 + Math.random() * 3;
-    particles.push({
-      x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-      r: 2 + Math.random() * 3, alpha: 1, color: '#ffe27a', type: 'sparkle'
-    });
-  }
-}
-
-function updateDrawParticles() {
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.x += p.vx; p.y += p.vy; p.alpha -= 0.02;
-    if (p.alpha <= 0) { particles.splice(i, 1); continue; }
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, p.alpha);
-    if (p.type === 'bubble') {
-      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.stroke();
-    } else {
-      ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
-  }
-}
-
-let bgBubbles = [];
-function initBgBubbles() {
-  bgBubbles = [];
-  for (let i = 0; i < 20; i++) {
-    bgBubbles.push({
-      x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-      r: 2 + Math.random() * 6, speed: 0.3 + Math.random() * 0.8, drift: (Math.random() - 0.5) * 0.5
-    });
-  }
-}
-initBgBubbles();
-
-function updateDrawBgBubbles() {
-  bgBubbles.forEach(b => {
-    b.y -= b.speed;
-    b.x += Math.sin(b.y * 0.02) * b.drift;
-    if (b.y < -10) { b.y = canvas.height + 10; b.x = Math.random() * canvas.width; }
-    ctx.save(); ctx.globalAlpha = 0.25; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-  });
-}
-
-let bgOffset = 0;
-function drawWater() {
-  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  grad.addColorStop(0, '#1da3d0'); grad.addColorStop(0.5, '#0b5f8a'); grad.addColorStop(1, '#032338');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-function drawSeabed() {
-  const y = canvas.height - CONFIG.groundHeight;
-  const grad = ctx.createLinearGradient(0, y, 0, canvas.height);
-  grad.addColorStop(0, '#d1b46a'); grad.addColorStop(1, '#8c7032');
-  ctx.fillStyle = grad; ctx.fillRect(0, y, canvas.width, CONFIG.groundHeight);
-}
-
-let fish = { x: 0, y: 0, vy: 0, r: 17, rot: 0, finT: 0, blinkTimer: 0 };
-let obstacles = [], coinsList = [], score = 0, difficultyLevel = 0, gameRunning = false;
-
-function resetGame() {
-  fish = { x: canvas.width * 0.28, y: canvas.height / 2, vy: 0, r: 17, rot: 0, finT: 0, blinkTimer: 0 };
-  obstacles = []; coinsList = []; particles = [];
-  score = 0; difficultyLevel = 0;
-  spawnObstacle();
-}
-
-function spawnObstacle() {
-  const gap = Math.max(CONFIG.gapBase - difficultyLevel * 5, CONFIG.gapMin);
-  const playableH = canvas.height - CONFIG.groundHeight;
-  const margin = 60;
-  const gapY = margin + Math.random() * (playableH - margin * 2 - gap);
-  const coralColor = ['#e0507a', '#3ec6f0', '#9b51e0', '#f2994a'][Math.floor(Math.random() * 4)];
-  
-  obstacles.push({ x: canvas.width + 40, gapY, gap, passed: false, w: 62, color: coralColor });
-
-  if (Math.random() < 0.6) {
-    coinsList.push({ x: canvas.width + 40 + 31, y: gapY + gap / 2, r: 10, collected: false, rot: 0 });
-  }
-}
-
-function obstacleSpeed() { return Math.min(CONFIG.speedBase + difficultyLevel * 0.15, CONFIG.speedMax); }
-
-function flap() {
-  AudioFx.init();
-  if (!gameRunning) return;
-  fish.vy = CONFIG.flapForce;
-  fish.finT = 1;
-  AudioFx.playFlap();
-  addBubbleParticle(fish.x - fish.r, fish.y);
-  if (navigator.vibrate) navigator.vibrate(12);
-}
-
-function updateGame() {
-  bgOffset += 1;
-  if (!gameRunning) return;
-
-  fish.vy += CONFIG.gravity;
-  fish.vy = Math.min(fish.vy, CONFIG.maxFallSpeed);
-  fish.y += fish.vy;
-  fish.rot = Math.max(-28, Math.min(65, fish.vy * 3.8));
-  fish.finT = Math.max(0, fish.finT - 0.05);
-
-  const speed = obstacleSpeed();
-  const playableH = canvas.height - CONFIG.groundHeight;
-
-  obstacles.forEach(o => o.x -= speed);
-  if (obstacles.length && obstacles[obstacles.length - 1].x < canvas.width - CONFIG.spacing) spawnObstacle();
-  obstacles = obstacles.filter(o => o.x > -90);
-
-  coinsList.forEach(c => {
-    c.x -= speed;
-    if (!c.collected) {
-      const dist = Math.hypot(fish.x - c.x, fish.y - c.y);
-      if (dist < fish.r + c.r) {
-        c.collected = true;
-        state.coins++;
-        store.set('flapfish_coins', state.coins);
-        document.getElementById('coinCount').textContent = '🪙 ' + state.coins;
-        AudioFx.playCoin();
-        addSparkleParticle(c.x, c.y);
-      }
-    }
-  });
-  coinsList = coinsList.filter(c => c.x > -40);
-
-  if (fish.y - fish.r < 0 || fish.y + fish.r > playableH) { return endGame(); }
-
-  let hit = false;
-  obstacles.forEach(o => {
-    if (!o.passed && o.x + o.w < fish.x - fish.r) {
-      o.passed = true;
-      score++;
-      if (score % CONFIG.difficultyRampScore === 0) difficultyLevel++;
-      addSparkleParticle(fish.x, fish.y);
-    }
-    const inX = fish.x + fish.r > o.x && fish.x - fish.r < o.x + o.w;
-    const inGapTop = fish.y - fish.r < o.gapY;
-    const inGapBottom = fish.y + fish.r > o.gapY + o.gap;
-    if (inX && (inGapTop || inGapBottom)) hit = true;
-  });
-
-  if (hit) return endGame();
-
-  const scoreEl = document.getElementById('scoreDisplay');
-  if (scoreEl.textContent != score) {
-    scoreEl.textContent = score;
-  }
-}
-
-function endGame() {
-  gameRunning = false;
-  AudioFx.playHit();
-  if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
-
-  const isNewRecord = score > state.best;
-  if (isNewRecord) { state.best = score; store.set('flapfish_best', state.best); }
-  document.getElementById('bestCount').textContent = '🏆 ' + state.best;
-
-  document.getElementById('scoreDisplay').classList.add('hidden');
-  document.getElementById('finalScoreVal').textContent = score;
-  document.getElementById('finalBestVal').textContent = state.best;
-  document.getElementById('newRecord').classList.toggle('hidden', !isNewRecord);
-  document.getElementById('gameOverScreen').classList.remove('hidden');
-}
-
-function drawFish() {
-  const currentSkin = SKINS.find(s => s.id === state.activeSkin) || SKINS[0];
-  ctx.save();
-  ctx.translate(fish.x, fish.y);
-  ctx.rotate(fish.rot * Math.PI / 180);
-  const r = fish.r;
-  
-  ctx.fillStyle = currentSkin.finColor;
-  ctx.beginPath(); ctx.ellipse(-r*0.8, 0, r*0.5, r*0.3, 0, 0, Math.PI*2); ctx.fill();
-
-  const bodyGrad = ctx.createRadialGradient(-r * 0.2, -r * 0.3, 2, 0, 0, r * 1.2);
-  bodyGrad.addColorStop(0, currentSkin.bodyGrad[0]);
-  bodyGrad.addColorStop(1, currentSkin.bodyGrad[1]);
-  ctx.fillStyle = bodyGrad;
-  ctx.beginPath(); ctx.ellipse(0, 0, r * 0.98, r * 0.72, 0, 0, Math.PI * 2); ctx.fill();
-
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(r * 0.38, -r * 0.12, r * 0.28, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#1a1a1a';
-  ctx.beginPath(); ctx.arc(r * 0.48, -r * 0.12, r * 0.14, 0, Math.PI * 2); ctx.fill();
-
-  ctx.restore();
-}
-
-function drawObstacles() {
-  const playableH = canvas.height - CONFIG.groundHeight;
-  obstacles.forEach(o => {
-    ctx.fillStyle = o.color;
-    ctx.fillRect(o.x, 0, o.w, o.gapY);
-    ctx.fillRect(o.x, o.gapY + o.gap, o.w, playableH - (o.gapY + o.gap));
-  });
-}
-
-function drawCoins() {
-  coinsList.forEach(c => {
-    if (c.collected) return;
-    ctx.fillStyle = '#ffe27a';
-    ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill();
-  });
-}
-
-function loop() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawWater();
-  updateDrawBgBubbles();
-  updateGame();
-  drawSeabed();
-  drawObstacles();
-  drawCoins();
-  updateDrawParticles();
-  drawFish();
-  requestAnimationFrame(loop);
-}
-
-function renderShop() {
-  const grid = document.getElementById('shopGrid');
-  grid.innerHTML = '';
-  SKINS.forEach(skin => {
-    const isUnlocked = state.unlockedSkins.includes(skin.id);
-    const isSelected = state.activeSkin === skin.id;
-    const item = document.createElement('div');
-    item.className = `shopItem ${isSelected ? 'selected' : ''}`;
-    item.innerHTML = `
-      <div class="shopItemName">${skin.name}</div>
-      <div class="shopItemPrice">${isSelected ? 'EM USO' : (isUnlocked ? 'POSSUI' : '🪙 ' + skin.price)}</div>
-    `;
-    item.onclick = (e) => {
-      e.stopPropagation();
-      if (isUnlocked) {
-        state.activeSkin = skin.id;
-        store.set('flapfish_skin', skin.id);
-      } else if (state.coins >= skin.price) {
-        state.coins -= skin.price;
-        state.unlockedSkins.push(skin.id);
-        state.activeSkin = skin.id;
-        store.set('flapfish_coins', state.coins);
-        store.set('flapfish_unlocked', state.unlockedSkins);
-        store.set('flapfish_skin', skin.id);
-        document.getElementById('coinCount').textContent = '🪙 ' + state.coins;
-      }
-      renderShop();
+function ensureMissions() {
+  const today = todayStr();
+  if (!state.missions || state.missions.date !== today) {
+    const shuffled = [...MISSION_POOL].sort(() => Math.random()-0.5);
+    state.missions = {
+      date: today,
+      active: shuffled.slice(0,3).map(m => ({ id:m.id, progress:0, claimed:false })),
+      counters: { pipesToday:0, perfectsToday:0, gamesToday:0 }
     };
-    grid.appendChild(item);
-  });
-}
-
-document.getElementById('bestCount').textContent = '🏆 ' + state.best;
-document.getElementById('coinCount').textContent = '🪙 ' + state.coins;
-
-function startGame() {
-  AudioFx.init();
-  document.getElementById('menuScreen').classList.add('hidden');
-  document.getElementById('gameOverScreen').classList.add('hidden');
-  document.getElementById('scoreDisplay').classList.remove('hidden');
-  resetGame();
-  gameRunning = true;
-}
-
-/* EVENTOS DE CLIQUE CORRIGIDOS (Usa apenas 'click' simples para evitar conflito) */
-document.getElementById('playBtn').onclick = function(e) {
-  e.stopPropagation();
-  startGame();
-};
-
-document.getElementById('restartBtn').onclick = function(e) {
-  e.stopPropagation();
-  startGame();
-};
-
-document.getElementById('menuBtn').onclick = function(e) {
-  e.stopPropagation();
-  document.getElementById('gameOverScreen').classList.add('hidden');
-  document.getElementById('menuScreen').classList.remove('hidden');
-};
-
-document.getElementById('shopBtn').onclick = function(e) {
-  e.stopPropagation();
-  renderShop();
-  document.getElementById('menuScreen').classList.add('hidden');
-  document.getElementById('shopScreen').classList.remove('hidden');
-};
-
-document.getElementById('closeShopBtn').onclick = function(e) {
-  e.stopPropagation();
-  document.getElementById('shopScreen').classList.add('hidden');
-  document.getElementById('menuScreen').classList.remove('hidden');
-};
-
-/* TOQUE NA TELA PARA NADAR */
-window.addEventListener('pointerdown', function(e) {
-  if (gameRunning && e.target === canvas) {
-    flap();
+    store.set('flapfish_missions', state.missions);
   }
-});
+}
+ensureMissions();
 
-requestAnimationFrame(loop);
-</script>
+function bumpMissionCounter(key, amount) {
+  ensureMissions();
+  state.missions.counters[key] = (state.missions.counters[key]||0) + amount;
+  state.missions.active.forEach(m => {
+    const def = MISSION_POOL.find(d => d.id === m.id);
+    if (!def || m.claimed) return;
+    m.progress = state.missions.counters[def.key] || 0;
+    if (m.progress >= def.target && !m.claimed) {
+      m.claimed = true;
+      state.coins += def.reward;
+      bumpCoinUI();
+      showAchieve
