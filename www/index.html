@@ -293,9 +293,9 @@ window.onerror = function(msg, url, line) { document.body.innerHTML = '<div styl
    ========================================================= */
 
 const CONFIG = {
-  gravity: 0.20,
-  flapForce: -5.25,
-  maxFallSpeed: 7,
+  gravity: 0.15,
+  flapForce: -4.55,
+  maxFallSpeed: 6,
   gapBase: 220,
   gapMin: 160,
   speedBase: 1.9,
@@ -309,14 +309,14 @@ const CONFIG = {
 };
 
 const SKINS = [
-  { id:'orange', name:'Laranjinho', emoji:'🐠', color:'#ff9500', color2:'#ffcf6e', cost:0, effect:'none', size:1.0 },
-  { id:'blue', name:'Azulado', emoji:'🐟', color:'#2196f3', color2:'#6ec6ff', cost:50, effect:'none', size:0.95 },
-  { id:'green', name:'Verdinho', emoji:'🐡', color:'#26a65b', color2:'#7be0a8', cost:80, effect:'none', size:1.05 },
-  { id:'purple', name:'Roxinho', emoji:'🐙', color:'#9c27b0', color2:'#cf7de0', cost:120, effect:'none', size:0.98 },
+  { id:'orange', name:'Tucunaré', emoji:'🐠', color:'#ff9500', color2:'#ffcf6e', cost:0, effect:'none', size:1.0 },
+  { id:'blue', name:'Robalo', emoji:'🐟', color:'#2196f3', color2:'#6ec6ff', cost:50, effect:'none', size:0.95 },
+  { id:'green', name:'Traíra', emoji:'🐡', color:'#26a65b', color2:'#7be0a8', cost:80, effect:'none', size:1.05 },
+  { id:'purple', name:'Pirarucu', emoji:'🐙', color:'#9c27b0', color2:'#cf7de0', cost:120, effect:'none', size:0.98 },
   { id:'gold', name:'Dourado', emoji:'🐡', color:'#ffd700', color2:'#fff2a8', cost:200, effect:'none', size:1.12 },
-  { id:'fire', name:'Lava', emoji:'🔥', color:'#ff5722', color2:'#ffab40', cost:150, effect:'fire', size:1.0 },
-  { id:'ice', name:'Gelo', emoji:'❄️', color:'#4fc3f7', color2:'#e1f5fe', cost:150, effect:'ice', size:0.92 },
-  { id:'rainbow', name:'Arco-Íris', emoji:'🌈', color:'#ff4500', color2:'#ffcc00', cost:300, effect:'rainbow', size:1.02 }
+  { id:'fire', name:'Piranha', emoji:'🔥', color:'#ff5722', color2:'#ffab40', cost:150, effect:'fire', size:1.0 },
+  { id:'ice', name:'Corvina', emoji:'❄️', color:'#4fc3f7', color2:'#e1f5fe', cost:150, effect:'ice', size:0.92 },
+  { id:'rainbow', name:'Acará', emoji:'🌈', color:'#ff4500', color2:'#ffcc00', cost:300, effect:'rainbow', size:1.02 }
 ];
 const BASE_FISH_R = 17;
 function fishRadiusForSkin(skin) { return BASE_FISH_R * (skin.size || 1); }
@@ -397,4 +397,4 @@ function bumpMissionCounter(key, amount) {
       m.claimed = true;
       state.coins += def.reward;
       bumpCoinUI();
-      showAchieve
+      showAchieveme
